@@ -28,3 +28,12 @@ jobs:
 
     - name: Test
       run: dotnet test --no-build --verbosity normal --configuration Release
+
+    - name: Publish
+      run: dotnet publish YourApp/YourApp.csproj --configuration Release --no-build --output ./publish_output
+
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: compoiled-app
+        path: ./publish_output
