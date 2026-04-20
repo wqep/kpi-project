@@ -1,4 +1,10 @@
-﻿// See https://aka.ms/new-console-template for more information
+﻿using KPI_PROJECT.Models.FirstLevelEnemies;
 
-
-Console.WriteLine("Hello, World!");
+class Program
+{
+    static void Main(string[] args)
+    {
+        StarterMagician df = new StarterMagician();
+        
+    }
+}
