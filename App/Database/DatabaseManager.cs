@@ -15,7 +15,15 @@ public class DatabaseManager
             CREATE TABLE IF NOT EXISTS Players (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 TelegramId INTEGER UNIQUE,
-                Nickname TEXT
+                Nickname TEXT,
+                Class TEXT,
+                Level INTEGER DEFAULT 1,
+                MaxHp INTEGER,
+                HP INTEGER,
+                HandDmg INTEGER,
+                PhisDefense INTEGER,
+                BasePhisDefense INTEGER,
+                MagicPower INTEGER
             )";
         command.ExecuteNonQuery();
     }
