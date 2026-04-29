@@ -16,4 +16,6 @@ public class Player : IBattleUnit
     public int BasePhisDefense { get; set; }
     public List<ActiveEffect> CurrentEffects { get; set; }
     public int MagicPower { get; set; }
+    public string LocationName { get; set; }
+    
 }
