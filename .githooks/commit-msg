@@ -9,7 +9,7 @@ if [[ ! $COMMIT_MSG =~ $REGEX ]]; then
   echo "--------------------------------------------------------"
   echo "COMMIT REJECTED: Invalid Format"
   echo "Your commit message must START with the Trello ID."
-  echo "Example: PRJ-40 Create test database"
+  echo "Example: PRJ-1 Added database"
   echo "--------------------------------------------------------"
   exit 1
 fi
