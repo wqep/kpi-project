@@ -42,7 +42,7 @@ class Program
 
             var me = await botClient.GetMe();
 
-            //Log.Information("Bot started successfully: @{Username}", me.Username);
+            Log.Information("Bot started successfully: @{Username}", me.Username);
             Console.WriteLine("Press enter to stop...");
             Console.ReadLine();
 
