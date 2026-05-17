@@ -4,6 +4,7 @@ using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types.Enums;
 using Serilog;
+using Serilog.Formatting.Compact;
 
 class Program
 {
@@ -11,8 +12,11 @@ class Program
     {
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
-            .WriteTo.Console()    
-            .WriteTo.File("logs/bot-log-.txt", rollingInterval: RollingInterval.Day)
+            .WriteTo.Console()
+            .WriteTo.File(
+                formatter: new CompactJsonFormatter(),
+                path: "logs/bot-log.clef",
+                rollingInterval: RollingInterval.Day)
             .CreateLogger();
 
         try
