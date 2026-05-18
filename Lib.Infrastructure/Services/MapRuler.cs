@@ -1,35 +1,38 @@
 using Lib.Core.Enums;
 using Lib.Infrastructure.Database;
+using Lib.Infrastructure.Database.Repositories;
 
-namespace Lib.Core.Services;
+namespace Lib.Infrastructure.Services;
 
 public class MapRuler
 {
-    private readonly DatabaseManager _db;
+    private readonly RoomRepository _roomRepo;
+    private readonly CharacterRepository _charRepo;
 
-    public MapRuler(DatabaseManager db)
+    public MapRuler(RoomRepository roomRepo, CharacterRepository charRepo)
     {
-        _db = db;
+        _roomRepo = roomRepo;
+        _charRepo = charRepo;
     }
 
     public void GenerateStarterDungeon(int charId, long telegramId)
     {
-        int r1 = _db.CreateRoom(charId, RoomType.Empty);
-        int r2 = _db.CreateRoom(charId, RoomType.Empty);
-        int r3 = _db.CreateRoom(charId, RoomType.Loot);
-        int r4 = _db.CreateRoom(charId, RoomType.Exit);
+        int r1 = _roomRepo.CreateRoom(charId, RoomType.Empty);
+        int r2 = _roomRepo.CreateRoom(charId, RoomType.Empty);
+        int r3 = _roomRepo.CreateRoom(charId, RoomType.Loot);
+        int r4 = _roomRepo.CreateRoom(charId, RoomType.Exit);
 
-        _db.CreateConnection(r1, r2, "North");
-        _db.CreateConnection(r2, r1, "South");
-        _db.CreateConnection(r2, r3, "East");
-        _db.CreateConnection(r3, r2, "West");
-        _db.CreateConnection(r2, r4, "North");
+        _roomRepo.CreateConnection(r1, r2, "North");
+        _roomRepo.CreateConnection(r2, r1, "South");
+        _roomRepo.CreateConnection(r2, r3, "East");
+        _roomRepo.CreateConnection(r3, r2, "West");
+        _roomRepo.CreateConnection(r2, r4, "North");
 
-        _db.UpdateCharacterRoom(telegramId, r1);
+        _charRepo.UpdateCharacterRoom(telegramId, r1);
     }
 
     public void MovePlayer(long telegramId, int targetRoomId)
     {
-        _db.UpdateCharacterRoom(telegramId, targetRoomId);
+        _charRepo.UpdateCharacterRoom(telegramId, targetRoomId);
     }
 }

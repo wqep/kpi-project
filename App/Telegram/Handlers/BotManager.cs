@@ -1,18 +1,26 @@
 using Lib.Core.BaseClasses;
 using Lib.Core.Enums;
-using Lib.Core.Services;
 using Lib.Infrastructure.CharacterFactory;
-using Lib.Infrastructure.Database;
+using Lib.Infrastructure.Database.Repositories;
+using Lib.Infrastructure.Services;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Lib.Infrastructure.Database;
 
 namespace App.Telegram.Handlers;
 
 public class BotManager
 {
-    private readonly DatabaseManager _dbManager;
+    private readonly CharacterRepository _charRepo;
+    private readonly RoomRepository _roomRepo;
+    private readonly InventoryRepository _invRepo;
+    private readonly UserRepository _userRepo;
+    
     private readonly MapRuler _mapRuler;
     private readonly GameRuler _gameRuler;
     private readonly ITelegramBotClient _botClient;
@@ -20,9 +28,14 @@ public class BotManager
     public BotManager(ITelegramBotClient botClient)
     {
         _botClient = botClient;
-        _dbManager = new DatabaseManager();
-        _mapRuler = new MapRuler(_dbManager);
-        _gameRuler = new GameRuler(_dbManager);
+        
+        _charRepo = new CharacterRepository();
+        _roomRepo = new RoomRepository();
+        _invRepo = new InventoryRepository();
+        _userRepo = new UserRepository();
+        
+        _mapRuler = new MapRuler(_roomRepo, _charRepo);
+        _gameRuler = new GameRuler(_invRepo, _charRepo, _roomRepo);
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
@@ -32,7 +45,7 @@ public class BotManager
             long id = update.CallbackQuery.From.Id;
             string data = update.CallbackQuery.Data;
 
-            Character? hero = _dbManager.GetActiveCharacter(id);
+            Character? hero = _charRepo.GetActiveCharacter(id);
 
             if (hero != null && hero.State == 1)
             {
@@ -40,7 +53,7 @@ public class BotManager
                 {
                     await botClient.AnswerCallbackQuery(
                         callbackQueryId: update.CallbackQuery.Id, 
-                        text: "⚔️ You're in fight, you cannot run", 
+                        text: "⚔️ Ты в бою! Сбежать нельзя!", 
                         showAlert: true);
                     return; 
                 }
@@ -50,14 +63,14 @@ public class BotManager
 
             if (data.StartsWith("class_"))
             {
-                _dbManager.EnsureUserExists(id, update.CallbackQuery.From.Username ?? "Unknown");
+                _userRepo.EnsureUserExists(id, update.CallbackQuery.From.Username ?? "Unknown");
                 
                 hero = CharacterFactory.CreateFromClass(id, data);
-                hero.Id = _dbManager.SaveCharacter(hero); 
+                hero.Id = _charRepo.SaveCharacter(hero); 
                 
                 _mapRuler.GenerateStarterDungeon(hero.Id, id);
                 
-                hero = _dbManager.GetActiveCharacter(id); 
+                hero = _charRepo.GetActiveCharacter(id); 
                 if (hero != null) await ShowRoom(id, hero);
             }
             else if (data.StartsWith("move_to:"))
@@ -65,7 +78,7 @@ public class BotManager
                 int targetId = int.Parse(data.Split(':')[1]);
                 _mapRuler.MovePlayer(id, targetId);
                 
-                hero = _dbManager.GetActiveCharacter(id);
+                hero = _charRepo.GetActiveCharacter(id);
                 if (hero != null) await ShowRoom(id, hero);
             }
             else if (data.StartsWith("action_loot:"))
@@ -96,7 +109,7 @@ public class BotManager
             }
             else
             {
-                Character? hero = _dbManager.GetActiveCharacter(id);
+                Character? hero = _charRepo.GetActiveCharacter(id);
                 if (hero != null) await ShowRoom(id, hero);
             }
         }
@@ -104,10 +117,10 @@ public class BotManager
 
     private async Task ShowRoom(long chatId, Character hero)
     {
-        var room = _dbManager.GetRoom(hero.CurrentRoomId);
+        var room = _roomRepo.GetRoom(hero.CurrentRoomId);
         if (room == null) return;
 
-        var inv = _dbManager.GetInventory(hero.Id);
+        var inv = _invRepo.GetInventory(hero.Id);
         string bag = inv.Count > 0 ? string.Join(", ", inv) : "Empty";
 
         string icon = room.Type switch { RoomType.Loot => "🎁", RoomType.Exit => "🚪", _ => "🌫️" };
