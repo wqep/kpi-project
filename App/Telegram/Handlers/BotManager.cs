@@ -1,8 +1,6 @@
-using KPI_PROJECT.Models;
 using Lib.Core.BaseClasses;
 using Lib.Core.Enums;
-using Lib.Core.Models.Items;
-using Lib.Core.Models.Items.Common;
+using Lib.Core.Services;
 using Lib.Infrastructure.CharacterFactory;
 using Lib.Infrastructure.Database;
 using Telegram.Bot;
@@ -14,21 +12,17 @@ namespace App.Telegram.Handlers;
 
 public class BotManager
 {
-    private readonly DatabaseManager _dbManager = new();
+    private readonly DatabaseManager _dbManager;
+    private readonly MapRuler _mapRuler;
+    private readonly GameRuler _gameRuler;
     private readonly ITelegramBotClient _botClient;
 
     public BotManager(ITelegramBotClient botClient)
     {
         _botClient = botClient;
-    }
-
-    private List<BaseItem> GetRoomLoot()
-    {
-        return new List<BaseItem> 
-        { 
-            new RedHeart(), 
-            new IronPlate()
-        };
+        _dbManager = new DatabaseManager();
+        _mapRuler = new MapRuler(_dbManager);
+        _gameRuler = new GameRuler(_dbManager);
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
@@ -38,59 +32,48 @@ public class BotManager
             long id = update.CallbackQuery.From.Id;
             string data = update.CallbackQuery.Data;
 
+            Character? hero = _dbManager.GetActiveCharacter(id);
+
+            if (hero != null && hero.State == 1)
+            {
+                if (data.StartsWith("move_to:") || data.StartsWith("action_loot:"))
+                {
+                    await botClient.AnswerCallbackQuery(
+                        callbackQueryId: update.CallbackQuery.Id, 
+                        text: "⚔️ You're in fight, you cannot run", 
+                        showAlert: true);
+                    return; 
+                }
+            }
+
             await botClient.AnswerCallbackQuery(update.CallbackQuery.Id);
 
             if (data.StartsWith("class_"))
             {
                 _dbManager.EnsureUserExists(id, update.CallbackQuery.From.Username ?? "Unknown");
-                Character hero = CharacterFactory.CreateFromClass(id, data);
                 
-                int charId = _dbManager.SaveCharacter(hero);
-                hero.Id = charId; 
+                hero = CharacterFactory.CreateFromClass(id, data);
+                hero.Id = _dbManager.SaveCharacter(hero); 
                 
-                int r1 = _dbManager.CreateRoom(charId, RoomType.Empty);
-                int r2 = _dbManager.CreateRoom(charId, RoomType.Empty);
-                int r3 = _dbManager.CreateRoom(charId, RoomType.Loot);
-                int r4 = _dbManager.CreateRoom(charId, RoomType.Exit);
-
-                _dbManager.CreateConnection(r1, r2, "North");
-                _dbManager.CreateConnection(r2, r1, "South");
-                _dbManager.CreateConnection(r2, r3, "East");
-                _dbManager.CreateConnection(r3, r2, "West");
-                _dbManager.CreateConnection(r2, r4, "North");
-
-                _dbManager.UpdateCharacterRoom(id, r1);
-                hero.CurrentRoomId = r1;
-
-                await ShowRoom(id, hero);
+                _mapRuler.GenerateStarterDungeon(hero.Id, id);
+                
+                hero = _dbManager.GetActiveCharacter(id); 
+                if (hero != null) await ShowRoom(id, hero);
             }
             else if (data.StartsWith("move_to:"))
             {
                 int targetId = int.Parse(data.Split(':')[1]);
-                _dbManager.UpdateCharacterRoom(id, targetId);
-                Character? hero = _dbManager.GetActiveCharacter(id);
+                _mapRuler.MovePlayer(id, targetId);
+                
+                hero = _dbManager.GetActiveCharacter(id);
                 if (hero != null) await ShowRoom(id, hero);
             }
             else if (data.StartsWith("action_loot:"))
             {
                 int roomId = int.Parse(data.Split(':')[1]);
-                Character? hero = _dbManager.GetActiveCharacter(id);
-                
                 if (hero != null)
                 {
-                    var foundItems = GetRoomLoot();
-                    string lootMsg = "🎉 You found items:\n\n";
-
-                    foreach (var item in foundItems)
-                    {
-                        item.AddBonuses(hero);
-                        _dbManager.AddItemToInventory(hero.Id, item.Name);
-                        lootMsg += $"**{item.Name}** ({item.Rarity})\n_{item.Description}_\n\n";
-                    }
-
-                    _dbManager.UpdateCharacterStats(hero);
-                    _dbManager.ChangeRoomType(roomId, RoomType.Empty);
-                    
+                    string lootMsg = _gameRuler.ProcessLooting(hero, roomId);
                     await botClient.SendMessage(id, lootMsg, parseMode: ParseMode.Markdown);
                     await ShowRoom(id, hero);
                 }
@@ -114,10 +97,7 @@ public class BotManager
             else
             {
                 Character? hero = _dbManager.GetActiveCharacter(id);
-                if (hero != null)
-                {
-                    await ShowRoom(id, hero);
-                }
+                if (hero != null) await ShowRoom(id, hero);
             }
         }
     }
@@ -133,7 +113,7 @@ public class BotManager
         string icon = room.Type switch { RoomType.Loot => "🎁", RoomType.Exit => "🚪", _ => "🌫️" };
         
         string msg = $"{icon} **Room Type: {room.Type}**\n" +
-                     $"❤ HP: {hero.Hp}/{hero.MaxHp} | 🪄 MP: {hero.MagicPower}\n" +
+                     $"❤️ HP: {hero.Hp}/{hero.MaxHp} | 🪄 MP: {hero.MagicPower}\n" +
                      $"🛡 Def: {hero.PhisDefense} | ⚔️ Dmg: {hero.HandDmg}\n" +
                      $"🎒 Bag: {bag}\n\nWhere to?";
 

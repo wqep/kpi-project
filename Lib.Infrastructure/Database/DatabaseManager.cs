@@ -38,6 +38,7 @@ public class DatabaseManager
                 BasePhisDefense INTEGER,
                 MagicPower INTEGER,
                 CurrentRoomId INTEGER DEFAULT 0,
+                State INTEGRAL DEFAULT 0,
                 IsAlive INTEGER DEFAULT 1,
                 FOREIGN KEY (TelegramId) REFERENCES Users(TelegramId)
             );
@@ -218,7 +219,8 @@ public class DatabaseManager
                 BasePhisDefense = reader.GetInt32(reader.GetOrdinal("BasePhisDefense")),
                 MagicPower = reader.GetInt32(reader.GetOrdinal("MagicPower")),
                 Level = reader.GetInt32(reader.GetOrdinal("Level")),
-                CurrentRoomId = reader.GetInt32(reader.GetOrdinal("CurrentRoomId"))
+                CurrentRoomId = reader.GetInt32(reader.GetOrdinal("CurrentRoomId")),
+                State = reader.GetInt32(reader.GetOrdinal("State"))
             };
         }
         return null;
@@ -243,6 +245,17 @@ public class DatabaseManager
         command.Parameters.AddWithValue("$mp", hero.MagicPower);
         command.Parameters.AddWithValue("$id", hero.Id);
     
+        command.ExecuteNonQuery();
+    }
+    
+    public void UpdateCharacterState(int charId, int state)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Characters SET State = $state WHERE Id = $id";
+        command.Parameters.AddWithValue("$state", state);
+        command.Parameters.AddWithValue("$id", charId);
         command.ExecuteNonQuery();
     }
 }

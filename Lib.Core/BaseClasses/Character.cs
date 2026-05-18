@@ -28,4 +28,5 @@ public class Character : IBattleUnit
     public int MagicPower { get; set; }
 
     public int CurrentRoomId { get; set; }
+    public int State { get; set; } = 0;
 }
