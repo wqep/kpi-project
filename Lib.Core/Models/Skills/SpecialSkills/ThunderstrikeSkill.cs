@@ -1,28 +1,28 @@
 using Lib.Core.Interfaces;
 using Lib.Core.Models.StatesAndEffects;
 
-namespace KPI_PROJECT.Models.EnemySkills;
+namespace Lib.Core.Models.Skills.SpecialSkills;
 
 public class ThunderStrikeSkill : ISkill
 {
     public string Name => "Thunderstrike";
-    public int TotalDmg { get; set; }
+    public int BaseDmg { get; set; }
     public int Multiplier { get; set; }
     
     public ThunderStrikeSkill(int totalDmg)
     {
-        TotalDmg = totalDmg;
+        BaseDmg = totalDmg;
         Multiplier = 2;
     }
 
     public void Execute(IBattleUnit caster, IBattleUnit target)
     {
-        var existCharm = target.CurrentEffects.Find(e => e.BattleStateEnum == BattleStateEnum.Charmed); ; 
+        var existCharm = target.CurrentEffects.Find(e => e.BattleStateEnum == BattleStateEnum.Charmed); 
         if (existCharm != null)
         {
-            TotalDmg *= Multiplier;
+            BaseDmg *= Multiplier;
         }
 
-        target.Hp = Math.Max(0, target.Hp - TotalDmg);
+        target.Hp = Math.Max(0, target.Hp - BaseDmg);
     }
 }

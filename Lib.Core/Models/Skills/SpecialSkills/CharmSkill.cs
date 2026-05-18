@@ -1,13 +1,11 @@
-using KPI_PROJECT.Models;
 using Lib.Core.Interfaces;
 using Lib.Core.Models.StatesAndEffects;
 
-namespace KPI_PROJECT.Models.EnemySkills;
+namespace Lib.Core.Models.Skills.SpecialSkills;
 
 public class CharmSkill : ISkill
 {
     public string Name => "Charming";
-    
     
     public void Execute(IBattleUnit caster, IBattleUnit target)
     {

@@ -1,11 +1,11 @@
 using Lib.Core.Interfaces;
 using Lib.Core.Models.StatesAndEffects;
 
-namespace KPI_PROJECT.Models.EnemySkills;
+namespace Lib.Core.Models.Skills.SpecialSkills;
 
 public class FireballSkill : ISkill
 {
-    public string Name =>  "Fireball";
+    public string Name => "Fireball";
     public int BaseDmg { get; set; }
     public int Multiplier { get; set; }
 
