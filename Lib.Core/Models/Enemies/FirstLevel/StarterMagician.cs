@@ -1,6 +1,6 @@
-using KPI_PROJECT.Models.EnemySkills;
 using Lib.Core.BaseClasses;
 using Lib.Core.Interfaces;
+using Lib.Core.Models.Skills.SpecialSkills;
 
 namespace Lib.Core.Models.Enemies.FirstLevel;
 

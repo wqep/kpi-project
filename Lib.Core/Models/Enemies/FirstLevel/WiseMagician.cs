@@ -1,6 +1,6 @@
-using KPI_PROJECT.Models.EnemySkills;
 using Lib.Core.BaseClasses;
 using Lib.Core.Interfaces;
+using Lib.Core.Models.Skills.SpecialSkills;
 
 namespace Lib.Core.Models.Enemies.FirstLevel;
 
@@ -13,9 +13,9 @@ public class WiseMagician : EnemyBase, IBattleUnit
         HandDmg = 6;
         Name = "Wise Magician";
         PhisDefense = 2;
-        CurrentSkills.Add(new FireballSkill(10));
+        CurrentSkills.Add(new FireballSkill(12));
         CurrentSkills.Add(new CharmSkill());
-        CurrentSkills.Add(new ThunderStrikeSkill(4));
+        CurrentSkills.Add(new ThunderStrikeSkill(5));
     }
     
     public override void CastSkill(ISkill chosenSkill, IBattleUnit target)

@@ -1,11 +1,11 @@
 using Lib.Core.Interfaces;
 using Lib.Core.Models.StatesAndEffects;
 
-namespace KPI_PROJECT.Models.EnemySkills;
+namespace Lib.Core.Models.Skills.SpecialSkills;
 
 public class FireballSkill : ISkill
 {
-    public string Name =>  "Fireball";
+    public string Name => "Fireball";
     public int BaseDmg { get; set; }
     public int Multiplier { get; set; }
 
@@ -17,8 +17,8 @@ public class FireballSkill : ISkill
 
     public void Execute(IBattleUnit caster, IBattleUnit target)
     {
-        var existBurning = target.CurrentEffects.Find(e => e.BattleState == BattleState.Burning);
-        var existCharm = target.CurrentEffects.Find(e => e.BattleState == BattleState.Charmed);
+        var existBurning = target.CurrentEffects.Find(e => e.BattleStateEnum == BattleStateEnum.Burning);
+        var existCharm = target.CurrentEffects.Find(e => e.BattleStateEnum == BattleStateEnum.Charmed);
         int resDamage = BaseDmg + caster.MagicPower;
         if (existBurning != null)
         { 
@@ -26,7 +26,7 @@ public class FireballSkill : ISkill
         }
         else
         {
-            target.CurrentEffects.Add(new ActiveEffect(BattleState.Burning, 3));
+            target.CurrentEffects.Add(new ActiveEffect(BattleStateEnum.Burning, 3));
         }
         
         if (existCharm != null)

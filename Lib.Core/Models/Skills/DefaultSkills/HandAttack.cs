@@ -7,10 +7,9 @@ public class HandAttack : ISkill
 {
     public string Name => "Hand Attack";
     
-
     public void Execute(IBattleUnit caster, IBattleUnit target)
     {
-        var existDefensive = target.CurrentEffects.Find(e => e.BattleState == BattleState.Defensive);
+        var existDefensive = target.CurrentEffects.Find(e => e.BattleStateEnum == BattleStateEnum.Defensive);
         int totalDmg = caster.HandDmg - target.PhisDefense;
         if (existDefensive != null)
         {

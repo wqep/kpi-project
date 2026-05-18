@@ -2,12 +2,12 @@ namespace Lib.Core.Models.StatesAndEffects;
 
 public class ActiveEffect
 {
-    public BattleState BattleState { get; set; }
+    public BattleStateEnum BattleStateEnum { get; set; }
     public int TurnsLeft { get; set; }
     
-    public ActiveEffect(BattleState battleState, int turnsLeft)
+    public ActiveEffect(BattleStateEnum battleStateEnum, int turnsLeft)
     { 
-        BattleState = battleState;
+        BattleStateEnum = battleStateEnum;
         TurnsLeft = turnsLeft;
     }
 }
