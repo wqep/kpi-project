@@ -183,7 +183,7 @@ public class BotManager
         if (update.Type == UpdateType.Message && update.Message?.Text != null)
         {
             long id = update.Message.From.Id;
-            if (update.Message.Text == "/start ")
+            if (update.Message.Text == "/start")
             {
                 var menu = new InlineKeyboardMarkup(new[]
                 {
