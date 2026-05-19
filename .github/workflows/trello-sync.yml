@@ -8,41 +8,48 @@ jobs:
   move-card-to-done:
     runs-on: ubuntu-latest
     steps:
-      - name: Extract Trello ID
+      - name: Extract Trello IDs from all commits
         id: extract
+        env:
+          COMMITS_JSON: ${{ toJSON(github.event.commits) }}
         run: |
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          TRELLO_IDS=$(echo "$COMMITS_JSON" | jq -r '.[].message' | grep -iP '^PRJ-[0-9]+[\s:-]+Done' | grep -oP '^PRJ-[0-9]+' | sort -u)
 
-          if echo "$COMMIT_MSG" | grep -iqP '^PRJ-[0-9]+[\s:-]+Done'; then
-            TRELLO_ID=$(echo "$COMMIT_MSG" | grep -oP '^PRJ-[0-9]+' | head -n 1)
-            echo "Completion detected! Found ID: $TRELLO_ID"
-            echo "TRELLO_ID=$TRELLO_ID" >> $GITHUB_ENV
+          if [ -n "$TRELLO_IDS" ]; then
+            # Перетворюємо розриви рядків на пробіли, щоб отримати список (PRJ-47 PRJ-48)
+            IDS_FLAT=$(echo $TRELLO_IDS | tr '\n' ' ')
+            echo "Completion detected! Found IDs: $IDS_FLAT"
+            echo "TRELLO_IDS=$IDS_FLAT" >> $GITHUB_ENV
           else
-            echo "Commit does not indicate completion. Skipping Trello sync."
-            echo "TRELLO_ID=" >> $GITHUB_ENV
+            echo "No commits indicate completion. Skipping Trello sync."
+            echo "TRELLO_IDS=" >> $GITHUB_ENV
           fi
 
       - name: Update Trello Board
-        if: env.TRELLO_ID != ''
+        if: env.TRELLO_IDS != ''
         env:
           TRELLO_KEY: ${{ secrets.TRELLO_API_KEY }}
           TRELLO_TOKEN: ${{ secrets.TRELLO_API_TOKEN }}
           DONE_LIST_ID: ${{ secrets.TRELLO_DONE_LIST_ID }}
         run: |
-          SEARCH_URL="https://api.trello.com/1/search?query=${{ env.TRELLO_ID }}&modelTypes=cards&key=$TRELLO_KEY&token=$TRELLO_TOKEN"
-          SEARCH_RES=$(curl -s "$SEARCH_URL")
+          # Запускаємо цикл для кожного знайденого Trello ID
+          for ID in ${{ env.TRELLO_IDS }}; do
+            echo "Processing Trello ID: $ID..."
+            
+            SEARCH_URL="https://api.trello.com/1/search?query=$ID&modelTypes=cards&key=$TRELLO_KEY&token=$TRELLO_TOKEN"
+            SEARCH_RES=$(curl -s "$SEARCH_URL")
 
-          CARD_ID=$(echo $SEARCH_RES | jq -r '.cards[0].id')
+            CARD_ID=$(echo $SEARCH_RES | jq -r '.cards[0].id')
 
-          if [ "$CARD_ID" != "null" ]; then
-            echo "Moving card $CARD_ID to the Done list and marking complete..."
-            curl -s -X PUT "https://api.trello.com/1/cards/$CARD_ID" \
-              -d "idList=$DONE_LIST_ID" \
-              -d "dueComplete=true" \
-              -d "key=$TRELLO_KEY" \
-              -d "token=$TRELLO_TOKEN"
-            echo "Successfully moved and marked complete!"
-          else
-            echo "Warning: Could not find a Trello card matching ${{ env.TRELLO_ID }}"
-          fi
-
+            if [ "$CARD_ID" != "null" ]; then
+              echo "Moving card $CARD_ID ($ID) to the Done list and marking complete..."
+              curl -s -X PUT "https://api.trello.com/1/cards/$CARD_ID" \
+                -d "idList=$DONE_LIST_ID" \
+                -d "dueComplete=true" \
+                -d "key=$TRELLO_KEY" \
+                -d "token=$TRELLO_TOKEN"
+              echo "Successfully moved and marked complete $ID!"
+            else
+              echo "Warning: Could not find a Trello card matching $ID"
+            fi
+          done
