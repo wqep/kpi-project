@@ -1,5 +1,7 @@
 using Lib.Core.BaseClasses;
 using Microsoft.Data.Sqlite;
+using System;
+using Lib.Infrastructure.Services;
 
 namespace Lib.Infrastructure.Database.Repositories;
 
@@ -10,9 +12,10 @@ public class CharacterRepository : BaseRepository
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         var command = connection.CreateCommand();
+        
         command.CommandText = @"
-            INSERT INTO Characters (TelegramId, Class, Level, HP, MaxHP, HandDmg, PhisDefense, BasePhisDefense, MagicPower) 
-            VALUES ($tgId, $class, $lvl, $hp, $mhp, $dmg, $def, $bdef, $mp);
+            INSERT INTO Characters (TelegramId, Class, Level, HP, MaxHP, HandDmg, PhisDefense, BasePhisDefense, MagicPower, Location, Floor) 
+            VALUES ($tgId, $class, $lvl, $hp, $mhp, $dmg, $def, $bdef, $mp, $loc, $floor);
             SELECT last_insert_rowid();";
         
         command.Parameters.AddWithValue("$tgId", c.TelegramId);
@@ -24,6 +27,8 @@ public class CharacterRepository : BaseRepository
         command.Parameters.AddWithValue("$def", c.PhisDefense);
         command.Parameters.AddWithValue("$bdef", c.BasePhisDefense);
         command.Parameters.AddWithValue("$mp", c.MagicPower);
+        command.Parameters.AddWithValue("$loc", c.Location);
+        command.Parameters.AddWithValue("$floor", c.Floor);
 
         return Convert.ToInt32(command.ExecuteScalar());
     }
@@ -52,10 +57,25 @@ public class CharacterRepository : BaseRepository
                 MagicPower = reader.GetInt32(reader.GetOrdinal("MagicPower")),
                 Level = reader.GetInt32(reader.GetOrdinal("Level")),
                 CurrentRoomId = reader.GetInt32(reader.GetOrdinal("CurrentRoomId")),
-                State = reader.GetInt32(reader.GetOrdinal("State"))
+                State = reader.GetInt32(reader.GetOrdinal("State")),
+                Location = reader.GetInt32(reader.GetOrdinal("Location")),
+                Floor = reader.GetInt32(reader.GetOrdinal("Floor")),
+                TurnsLeft = reader.GetInt32(reader.GetOrdinal("TurnsLeft"))
+                
             };
         }
         return null;
+    }
+    public void UpdateLocationAndFloor(int charId, int location, int floor)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Characters SET Location = $loc, Floor = $floor WHERE Id = $id";
+        command.Parameters.AddWithValue("$loc", location);
+        command.Parameters.AddWithValue("$floor", floor);
+        command.Parameters.AddWithValue("$id", charId);
+        command.ExecuteNonQuery();
     }
 
     public void UpdateCharacterStats(Character hero)
@@ -100,6 +120,32 @@ public class CharacterRepository : BaseRepository
         command.Parameters.AddWithValue("$rid", roomId);
         command.Parameters.AddWithValue("$tgId", tgId);
         command.ExecuteNonQuery(); 
-        
+    }
+    
+    public void UpdateTurnsLeft(int charId, int turnsLeft)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Characters SET TurnsLeft = $turns WHERE Id = $id";
+        command.Parameters.AddWithValue("$turns", turnsLeft);
+        command.Parameters.AddWithValue("$id", charId);
+        command.ExecuteNonQuery();
+    }
+
+    public void ResetTurnsForFloor(int charId, int location, int floor)
+    {
+        int turns = TurnsHelper.GetTurnsForFloor(location, floor);
+        UpdateTurnsLeft(charId, turns);
+    }
+    
+    public void KillCharacter(int charId)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Characters SET IsAlive = 0 WHERE Id = $id";
+        command.Parameters.AddWithValue("$id", charId);
+        command.ExecuteNonQuery();
     }
 }

@@ -35,4 +35,7 @@ public class Character : IBattleUnit
 
     public int CurrentRoomId { get; set; }
     public int State { get; set; } = 0;
+    public int Location { get; set; } = 1;
+    public int Floor { get; set; } = 1;
+    public int TurnsLeft { get; set; } = 25;
 }
