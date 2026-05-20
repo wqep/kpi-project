@@ -1,4 +1,3 @@
-using System;
 using System.Text.Json;
 using Lib.Core.BaseClasses;
 using Lib.Core.Enums;
@@ -7,6 +6,7 @@ using Lib.Core.Models;
 using Lib.Core.Models.Enemies.FirstLevel;
 using Lib.Infrastructure.Database;
 using Lib.Infrastructure.Database.Repositories;
+using Serilog;
 
 namespace Lib.Infrastructure.Services;
 
@@ -27,6 +27,8 @@ public class MapRuler
 
     public void GenerateLocationOne(int charId, long telegramId, int floor)
     {
+        Log.Information("Beginning generation of {Floor} floor for hero {CharId}", floor, charId);
+        
         int width;
         int height;
 
@@ -54,7 +56,10 @@ public class MapRuler
     
         var hero = _charRepo.GetActiveCharacter(telegramId);
         if (hero != null)
+        {
             _charRepo.ResetTurnsForFloor(charId, hero.Location, floor);
+            Log.Debug("Turns of hero {CharId} are reset", charId);
+        }
     }
 
     private void GenerateGridLevel(int charId, long telegramId, int width, int height)
@@ -139,10 +144,13 @@ public class MapRuler
 
         if (hero.TurnsLeft <= 0)
         {
+            Log.Information("Hero {HeroId} died from lack of turns", hero.Id);
             _charRepo.UpdateTurnsLeft(hero.Id, 0);
             _charRepo.KillCharacter(hero.Id);
             return "no_turns";
         }
+        
+        Log.Debug("Hero {HeroId} went into room {RoomId}. Turns left: {TurnsLeft}", hero.Id, targetRoomId, hero.TurnsLeft);
 
         _charRepo.UpdateTurnsLeft(hero.Id, hero.TurnsLeft);
         _charRepo.UpdateCharacterRoom(telegramId, targetRoomId);
@@ -159,6 +167,7 @@ public class MapRuler
 
         if (room.Type == RoomType.Enemy)
         {
+            Log.Information("Hero {HeroId} went into room with enemies (RoomId: {RoomId}). Starting fight.", hero.Id, targetRoomId);
             _charRepo.UpdateCharacterState(hero.Id, 1);
             var enemies = EnemyFactory.GenerateEnemiesForLocation(hero.Location);
             string enemiesJson = JsonSerializer.Serialize(
@@ -189,8 +198,13 @@ public class MapRuler
         }
 
         if (nextLocation > 3)
+        {
+            Log.Information("Hero {HeroId} have beat the game", hero.Id);
             return "victory";
-
+        }
+        
+        Log.Information("Hero {HeroId} going to the next level: Location {Location}, Floor {Floor}", hero.Id, nextLocation, nextFloor);
+        
         _charRepo.UpdateLocationAndFloor(hero.Id, nextLocation, nextFloor);
         GenerateLocationOne(hero.Id, telegramId, nextFloor);
 

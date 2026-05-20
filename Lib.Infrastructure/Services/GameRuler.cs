@@ -5,6 +5,7 @@ using Lib.Core.Models.Items;
 using Lib.Core.Models.Items.Common;
 using Lib.Infrastructure.Database;
 using Lib.Infrastructure.Database.Repositories;
+using Serilog;
 
 namespace Lib.Infrastructure.Services;
 
@@ -23,6 +24,8 @@ public class GameRuler
 
     public string ProcessLooting(Character hero, int roomId)
     {
+        Log.Debug("Hero {HeroId} is looting room {RoomId}", hero.Id, roomId);
+        
         var foundItems = new List<BaseItem> 
         { 
             new RedHeart(), 
@@ -36,10 +39,14 @@ public class GameRuler
             item.AddBonuses(hero);
             _invRepo.AddItemToInventory(hero.Id, item.Name);
             lootMsg += $"**{item.Name}** ({item.Rarity})\n_{item.Description}_\n\n";
+            
+            Log.Information("Hero {HeroId} found item {ItemName} in room {RoomId}", hero.Id, item.Name, roomId);
         }
 
         _charRepo.UpdateCharacterStats(hero);
         _roomRepo.ChangeRoomType(roomId, RoomType.Empty);
+        
+        Log.Debug("Room {RoomId} marked as Empty after looting by hero {HeroId}", roomId, hero.Id);
 
         return lootMsg;
     }

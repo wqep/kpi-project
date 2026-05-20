@@ -14,6 +14,9 @@
       <Reference Include="Microsoft.Data.Sqlite">
         <HintPath>..\..\..\..\.nuget\packages\microsoft.data.sqlite.core\10.0.5\lib\net8.0\Microsoft.Data.Sqlite.dll</HintPath>
       </Reference>
+      <Reference Include="Serilog">
+        <HintPath>..\..\..\..\.nuget\packages\serilog\4.3.2-dev-02433\lib\net8.0\Serilog.dll</HintPath>
+      </Reference>
     </ItemGroup>
 
     <ItemGroup>

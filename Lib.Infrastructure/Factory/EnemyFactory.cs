@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Lib.Core.BaseClasses;
 using Lib.Core.Models.Enemies.FirstLevel;
 using Lib.Core.Models.Enemies.SecondLocation;
+using Serilog;
 
 namespace Lib.Core.Factories;
 
@@ -25,6 +26,7 @@ public static class EnemyFactory
             });
         }
         
+        Log.Debug("Generated {EnemyCount} enemies for location {LocationId}", count, locationId);
         return enemies;
     }
 

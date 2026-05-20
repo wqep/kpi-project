@@ -1,5 +1,7 @@
 ﻿using App.Telegram.Handlers;
 using Lib.Infrastructure.Database;
+using Serilog;
+using Serilog.Formatting.Compact;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types.Enums;
@@ -10,41 +12,62 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        Console.WriteLine("⏳ BOT LAUNCHING...");
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Console()
+            .WriteTo.File(
+                formatter: new CompactJsonFormatter(),
+                path: "logs/app-log.clef",
+                rollingInterval: RollingInterval.Day)
+            .CreateLogger();
 
-        Console.WriteLine("⚙️ CHECKING DATABASES...");
-        var dbInit = new DbInitializer();
-        dbInit.Initialize();
-        Console.WriteLine("✅ DATA BASES INITED!");
-
-        string token = await File.ReadAllTextAsync("Token.txt");
-        var botClient = new TelegramBotClient(token.Trim());
-
-        var botManager = new BotManager(botClient);
-
-        using CancellationTokenSource cts = new();
-
-        ReceiverOptions receiverOptions = new()
+        try
         {
-            AllowedUpdates = Array.Empty<UpdateType>()
-        };
+            Log.Information("⏳ BOT LAUNCHING...");
 
-        botClient.StartReceiving(
-            updateHandler: botManager.HandleUpdateAsync,
-            errorHandler: (ITelegramBotClient client, Exception exception, CancellationToken ct) => 
+            Log.Information("⚙️ CHECKING DATABASES...");
+            var dbInit = new DbInitializer();
+            dbInit.Initialize();
+
+            string token = await File.ReadAllTextAsync("Token.txt");
+            var botClient = new TelegramBotClient(token.Trim());
+
+            var botManager = new BotManager(botClient);
+
+            using CancellationTokenSource cts = new();
+
+            ReceiverOptions receiverOptions = new()
             {
-                Console.WriteLine($"❌ Error: {exception}");
-                return Task.CompletedTask;
-            },
-            receiverOptions: receiverOptions,
-            cancellationToken: cts.Token
-        );
+                AllowedUpdates = Array.Empty<UpdateType>()
+            };
 
-        var me = await botClient.GetMe();
-        Console.WriteLine($"🚀 BOT @{me.Username} STARTED NAD WORKING PROPERLY");
-        Console.WriteLine("PRESS ENTER TO STOP....\n");
+            botClient.StartReceiving(
+                updateHandler: botManager.HandleUpdateAsync,
+                errorHandler: (ITelegramBotClient client, Exception exception, CancellationToken ct) => 
+                {
+                    Console.WriteLine();
+                    Log.Error($"❌ Error: {exception}");
+                    Console.Write("\nPRESS ENTER TO STOP...");
+                    return Task.CompletedTask;
+                },
+                receiverOptions: receiverOptions,
+                cancellationToken: cts.Token
+            );
+
+            var me = await botClient.GetMe();
+            Log.Information($"🚀 BOT @{me.Username} STARTED AND WORKING PROPERLY");
+            Console.Write("\nPRESS ENTER TO STOP...");
         
-        Console.ReadLine();
-        cts.Cancel();
+            Console.ReadLine();
+            cts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Fatal exception have occured");
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
     }
 }

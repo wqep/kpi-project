@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Serilog;
 
 namespace Lib.Infrastructure.Database;
 
@@ -73,11 +74,15 @@ public class DbInitializer : BaseRepository
             )"
         };
 
+        int tablesChecked = 0;
         foreach (var sql in tables)
         {
             var command = connection.CreateCommand();
             command.CommandText = sql;
             command.ExecuteNonQuery();
+            tablesChecked++;
         }
+        
+        Log.Information("✅ DATABASE INITIALIZATION COMPLETED SUCCESSFULLY. CHECKED/CREATED {TableCount} TABLES.", tablesChecked);
     }
 }

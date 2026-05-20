@@ -1,4 +1,5 @@
 using Lib.Core.BaseClasses;
+using Serilog;
 
 namespace Lib.Infrastructure.CharacterFactory;
 
@@ -6,6 +7,8 @@ public static class CharacterFactory
 {
     public static Character CreateFromClass(long tgId, string callbackData)
     {
+        Log.Debug("Creating a new character for TelegramId {TelegramId} with class {ClassCallback}", tgId, callbackData);
+        
         var character = new Character 
         { 
             TelegramId = tgId, 
@@ -26,6 +29,10 @@ public static class CharacterFactory
                 
             case "class_paladin":
                 SetStats(character, "Paladin", 75, 12, 6, 2);
+                break;
+            
+            default:
+                Log.Warning("Received unknown callbackData when creating class: {CallbackData}. TelegramId: {TelegramId}", callbackData, tgId);
                 break;
         }
         

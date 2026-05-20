@@ -7,6 +7,7 @@ using Lib.Core.Factories;
 using Lib.Core.Models;
 using Lib.Core.Models.StatesAndEffects;
 using Lib.Infrastructure.Database.Repositories;
+using Serilog;
 
 namespace Lib.Infrastructure.Services;
 
@@ -31,10 +32,18 @@ public class BattleRuler
     public (string Message, List<EnemyBattleData> Enemies) GetBattleState(long telegramId)
     {
         var hero = _charRepo.GetActiveCharacter(telegramId);
-        if (hero == null) return ("Character not found.", new());
+        if (hero == null)
+        {
+            Log.Warning("Attempted to get battle state for a non-existent character. TelegramId: {TelegramId}", telegramId);
+            return ("Character not found.", new());
+        }
 
         var battleData = _battleRepo.GetBattle(hero.Id);
-        if (battleData == null) return ("Battle not found.", new());
+        if (battleData == null)
+        {
+            Log.Warning("Battle not found for hero {HeroId}", hero.Id);
+            return ("Battle not found.", new());
+        }
 
         var enemies = JsonSerializer.Deserialize<List<EnemyBattleData>>(battleData.Value.EnemiesJson) ?? new();
         hero.CurrentEffects = JsonSerializer.Deserialize<List<ActiveEffect>>(battleData.Value.HeroEffectsJson) ?? new();
@@ -59,9 +68,12 @@ public class BattleRuler
         if (hero == null) return ("Character not found.", BattleResult.Defeat);
         if (hero.State != 1) return ("You are not in battle.", BattleResult.Ongoing);
 
+        Log.Debug("Hero {HeroId} is attempting to attack enemy at index {EnemyIndex}", hero.Id, enemyIndex);
+        
         var battleData = _battleRepo.GetBattle(hero.Id);
         if (battleData == null)
         {
+            Log.Error("Hero {HeroId} state is 1 (in battle), but no active battle found in DB!", hero.Id);
             _charRepo.UpdateCharacterState(hero.Id, 0);
             return ("Error: battle not found.", BattleResult.Ongoing);
         }
@@ -77,16 +89,20 @@ public class BattleRuler
         int dmgToEnemy = Math.Max(0, hero.HandDmg - GetEnemyDefense(target.ClassType));
         target.Hp = Math.Max(0, target.Hp - dmgToEnemy);
 
+        Log.Information("Hero {HeroId} dealt {Damage} damage to enemy {EnemyName}", hero.Id, dmgToEnemy, target.Name);
+        
         string result = $"⚔️ You attacked {target.Name} for {dmgToEnemy} damage.";
 
         if (target.Hp <= 0)
         {
+            Log.Information("Enemy {EnemyName} was defeated by hero {HeroId}", target.Name, hero.Id);
             enemies.RemoveAt(enemyIndex);
             result += $"\n💀 {target.Name} has been defeated!";
         }
 
         if (enemies.Count == 0)
         {
+            Log.Information("Battle ended in victory for hero {HeroId}", hero.Id);
             _battleRepo.EndBattle(hero.Id);
             _charRepo.UpdateCharacterState(hero.Id, 0);
             _charRepo.UpdateTurnsLeft(hero.Id, hero.TurnsLeft - 1);
@@ -117,6 +133,7 @@ public class BattleRuler
 
         if (hero.Hp <= 0)
         {
+            Log.Information("Hero {HeroId} DIED in battle!", hero.Id);
             _battleRepo.EndBattle(hero.Id);
             _charRepo.UpdateCharacterState(hero.Id, 0);
             _charRepo.KillCharacter(hero.Id);
