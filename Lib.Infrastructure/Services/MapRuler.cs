@@ -97,6 +97,9 @@ public class MapRuler
         }
 
         _charRepo.UpdateCharacterRoom(telegramId, grid[0, 0]);
+        _charRepo.UpdateCharacterRoom(telegramId, grid[0, 0]);
+        _roomRepo.MarkRoomExplored(charId, grid[0, 0]);
+        _charRepo.UpdateMapSize(charId, width, height);
     }
 
     private RoomType GetRandomRoomType()
@@ -143,7 +146,9 @@ public class MapRuler
 
         _charRepo.UpdateTurnsLeft(hero.Id, hero.TurnsLeft);
         _charRepo.UpdateCharacterRoom(telegramId, targetRoomId);
-
+        _charRepo.UpdateCharacterRoom(telegramId, targetRoomId);
+        _roomRepo.MarkRoomExplored(hero.Id, targetRoomId);
+        
         var room = _roomRepo.GetRoom(targetRoomId);
         if (room == null) return "ok";
 
@@ -172,7 +177,7 @@ public class MapRuler
         return "ok";
     }
 
-    private string AdvanceFloor(Character hero, long telegramId)
+    public string AdvanceFloor(Character hero, long telegramId)
     {
         int nextFloor = hero.Floor + 1;
         int nextLocation = hero.Location;

@@ -33,6 +33,8 @@ public class DbInitializer : BaseRepository
                 Location INTEGER DEFAULT 1,
                 Floor INTEGER DEFAULT 1,
                 TurnsLeft INTEGER DEFAULT 25,
+                MapWidth INTEGER DEFAULT 4,
+                MapHeight INTEGER DEFAULT 3,
                 FOREIGN KEY (TelegramId) REFERENCES Users(TelegramId)
             )",
 
@@ -63,6 +65,11 @@ public class DbInitializer : BaseRepository
                 CharId INTEGER UNIQUE NOT NULL,
                 EnemiesJson TEXT NOT NULL DEFAULT '[]',
                 HeroEffectsJson TEXT NOT NULL DEFAULT '[]'
+            )",
+            @"CREATE TABLE IF NOT EXISTS ExploredRooms (
+                CharacterId INTEGER,
+                RoomId INTEGER,
+                PRIMARY KEY (CharacterId, RoomId)
             )"
         };
 

@@ -66,5 +66,49 @@ public class RoomRepository : BaseRepository
         command.ExecuteNonQuery();
     }
     
-    
+    public void MarkRoomExplored(int charId, int roomId)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+        INSERT OR IGNORE INTO ExploredRooms (CharacterId, RoomId) 
+        VALUES ($charId, $roomId)";
+        command.Parameters.AddWithValue("$charId", charId);
+        command.Parameters.AddWithValue("$roomId", roomId);
+        command.ExecuteNonQuery();
+    }
+
+    public HashSet<int> GetExploredRooms(int charId)
+    {
+        var result = new HashSet<int>();
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT RoomId FROM ExploredRooms WHERE CharacterId = $charId";
+        command.Parameters.AddWithValue("$charId", charId);
+        using var reader = command.ExecuteReader();
+        while (reader.Read()) result.Add(reader.GetInt32(0));
+        return result;
+    }
+
+    public List<Room> GetAllCharacterRooms(int charId)
+    {
+        var rooms = new List<Room>();
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, Type FROM Rooms WHERE CharacterId = $charId";
+        command.Parameters.AddWithValue("$charId", charId);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            rooms.Add(new Room 
+            { 
+                Id = reader.GetInt32(0), 
+                Type = (RoomType)reader.GetInt32(1) 
+            });
+        }
+        return rooms;
+    }
 }
