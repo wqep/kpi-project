@@ -32,4 +32,6 @@ public class Character : IBattleUnit
     public int Location { get; set; } = 1;
     public int Floor { get; set; } = 1;
     public int TurnsLeft { get; set; } = 25;
+    public int MapWidth { get; set; } = 4;
+    public int MapHeight { get; set; } = 3;
 }

@@ -4,12 +4,18 @@ using System.Linq;
 using System.Text.Json;
 using Lib.Core.BaseClasses;
 using Lib.Core.Factories;
-using Lib.Core.Interfaces;
 using Lib.Core.Models;
 using Lib.Core.Models.StatesAndEffects;
 using Lib.Infrastructure.Database.Repositories;
 
 namespace Lib.Infrastructure.Services;
+
+public enum BattleResult
+{
+    Ongoing,
+    Victory,
+    Defeat
+}
 
 public class BattleRuler
 {
@@ -40,31 +46,31 @@ public class BattleRuler
         string enemyList = string.Join("\n", enemies.Select((e, i) => $"{i + 1}. {e.Name} ❤️ {e.Hp}/{e.MaxHp}"));
 
         string msg = $"⚔️ Battle!\n" +
-                     $"❤️ HP: {hero.Hp}/{hero.MaxHp}{effectsInfo}\n\n" +
+                     $"❤️ HP: {hero.Hp}/{hero.MaxHp} | ⌛ Turns: {hero.TurnsLeft}{effectsInfo}\n\n" +
                      $"{enemyList}\n\n" +
                      $"Choose your action:";
 
         return (msg, enemies);
     }
 
-    public string ProcessAttack(long telegramId, int enemyIndex)
+    public (string Message, BattleResult Result) ProcessAttack(long telegramId, int enemyIndex)
     {
         var hero = _charRepo.GetActiveCharacter(telegramId);
-        if (hero == null) return "Character not found.";
-        if (hero.State != 1) return "You are not in battle.";
+        if (hero == null) return ("Character not found.", BattleResult.Defeat);
+        if (hero.State != 1) return ("You are not in battle.", BattleResult.Ongoing);
 
         var battleData = _battleRepo.GetBattle(hero.Id);
         if (battleData == null)
         {
             _charRepo.UpdateCharacterState(hero.Id, 0);
-            return "Error: battle not found.";
+            return ("Error: battle not found.", BattleResult.Ongoing);
         }
 
         var enemies = JsonSerializer.Deserialize<List<EnemyBattleData>>(battleData.Value.EnemiesJson) ?? new();
         hero.CurrentEffects = JsonSerializer.Deserialize<List<ActiveEffect>>(battleData.Value.HeroEffectsJson) ?? new();
 
         if (enemyIndex < 0 || enemyIndex >= enemies.Count)
-            return "Invalid target.";
+            return ("Invalid target.", BattleResult.Ongoing);
 
         var target = enemies[enemyIndex];
 
@@ -84,7 +90,7 @@ public class BattleRuler
             _battleRepo.EndBattle(hero.Id);
             _charRepo.UpdateCharacterState(hero.Id, 0);
             _charRepo.UpdateTurnsLeft(hero.Id, hero.TurnsLeft - 1);
-            return result + "\n\n✅ All enemies defeated! You may move on.";
+            return (result + "\n\n✅ All enemies defeated! You may move on.", BattleResult.Victory);
         }
 
         var rand = new Random();
@@ -114,11 +120,11 @@ public class BattleRuler
             _battleRepo.EndBattle(hero.Id);
             _charRepo.UpdateCharacterState(hero.Id, 0);
             _charRepo.KillCharacter(hero.Id);
-            return result + "\n\n💀 You died. DARKNESS TOOK YOU.";
+            return (result + "\n\n💀 You died. DARKNESS TOOK YOU.", BattleResult.Defeat);
         }
 
         result += $"\n\n❤️ Your HP: {hero.Hp}/{hero.MaxHp}";
-        return result;
+        return (result, BattleResult.Ongoing);
     }
 
     public string ProcessDefend(long telegramId)
@@ -138,7 +144,7 @@ public class BattleRuler
             JsonSerializer.Serialize(hero.CurrentEffects)
         );
 
-        return $"🛡 You take a defensive stance. Incoming damage reduced this turn.";
+        return "🛡 You take a defensive stance. Incoming damage reduced this turn.";
     }
 
     private int GetEnemyDefense(string classType)

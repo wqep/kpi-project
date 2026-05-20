@@ -60,12 +60,27 @@ public class CharacterRepository : BaseRepository
                 State = reader.GetInt32(reader.GetOrdinal("State")),
                 Location = reader.GetInt32(reader.GetOrdinal("Location")),
                 Floor = reader.GetInt32(reader.GetOrdinal("Floor")),
-                TurnsLeft = reader.GetInt32(reader.GetOrdinal("TurnsLeft"))
+                TurnsLeft = reader.GetInt32(reader.GetOrdinal("TurnsLeft")),
+                MapWidth = reader.GetInt32(reader.GetOrdinal("MapWidth")),
+                MapHeight = reader.GetInt32(reader.GetOrdinal("MapHeight"))
                 
             };
         }
         return null;
     }
+    
+    public void UpdateMapSize(int charId, int width, int height)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Characters SET MapWidth = $w, MapHeight = $h WHERE Id = $id";
+        command.Parameters.AddWithValue("$w", width);
+        command.Parameters.AddWithValue("$h", height);
+        command.Parameters.AddWithValue("$id", charId);
+        command.ExecuteNonQuery();
+    }
+    
     public void UpdateLocationAndFloor(int charId, int location, int floor)
     {
         using var connection = new SqliteConnection(_connectionString);

@@ -1,5 +1,6 @@
 using Lib.Core.BaseClasses;
 using Lib.Core.Enums;
+using Lib.Core.Factories;
 using Lib.Infrastructure.CharacterFactory;
 using Lib.Infrastructure.Database.Repositories;
 using Lib.Infrastructure.Services;
@@ -7,9 +8,6 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Lib.Infrastructure.Database;
 
 namespace App.Telegram.Handlers;
@@ -24,21 +22,23 @@ public class BotManager
     private readonly MapRuler _mapRuler;
     private readonly GameRuler _gameRuler;
     private readonly BattleRuler _battleRuler;
+    private readonly MapRenderer _mapRenderer;
     private readonly ITelegramBotClient _botClient;
 
     public BotManager(ITelegramBotClient botClient)
     {
         _botClient = botClient;
-        
+
         _charRepo = new CharacterRepository();
         _roomRepo = new RoomRepository();
         _invRepo = new InventoryRepository();
         _userRepo = new UserRepository();
-        
+
         _battleRepo = new ActiveBattleRepository();
         _mapRuler = new MapRuler(_roomRepo, _charRepo, _battleRepo);
         _gameRuler = new GameRuler(_invRepo, _charRepo, _roomRepo);
         _battleRuler = new BattleRuler(_charRepo, _battleRepo);
+        _mapRenderer = new MapRenderer(_roomRepo);
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
@@ -84,7 +84,6 @@ public class BotManager
                 string moveResult = _mapRuler.ProcessRoomEntry(id, targetId);
 
                 hero = _charRepo.GetActiveCharacter(id);
-                if (hero == null) return;
 
                 if (moveResult == "no_turns")
                 {
@@ -109,12 +108,13 @@ public class BotManager
                     return;
                 }
 
+                if (hero == null) return;
+
                 if (hero.State == 1)
                     await ShowBattle(id, hero);
                 else
                     await ShowRoom(id, hero);
             }
-            
             else if (data.StartsWith("action_loot:"))
             {
                 int roomId = int.Parse(data.Split(':')[1]);
@@ -122,6 +122,18 @@ public class BotManager
                 {
                     string lootMsg = _gameRuler.ProcessLooting(hero, roomId);
                     await botClient.SendMessage(id, lootMsg, parseMode: ParseMode.Markdown);
+                    hero = _charRepo.GetActiveCharacter(id);
+                    if (hero != null) await ShowRoom(id, hero);
+                }
+            }
+            else if (data.StartsWith("flee_to:"))
+            {
+                int prevRoomId = int.Parse(data.Split(':')[1]);
+                if (hero != null)
+                {
+                    hero.TurnsLeft--;
+                    _charRepo.UpdateTurnsLeft(hero.Id, hero.TurnsLeft);
+                    _charRepo.UpdateCharacterRoom(id, prevRoomId);
                     hero = _charRepo.GetActiveCharacter(id);
                     if (hero != null) await ShowRoom(id, hero);
                 }
@@ -162,19 +174,53 @@ public class BotManager
                 int enemyIndex = int.Parse(data.Split(':')[1]);
                 if (hero == null) return;
 
-                string attackResult = _battleRuler.ProcessAttack(id, enemyIndex);
+                var (attackResult, battleResult) = _battleRuler.ProcessAttack(id, enemyIndex);
                 await botClient.SendMessage(id, attackResult, parseMode: ParseMode.Markdown);
 
-                if (attackResult.Contains("DARKNESS TOOK YOU"))
-                    return;
+                if (battleResult == BattleResult.Defeat) return;
 
                 hero = _charRepo.GetActiveCharacter(id);
                 if (hero == null) return;
 
-                if (hero.State == 1)
-                    await ShowBattle(id, hero);
-                else
+                if (battleResult == BattleResult.Victory || hero.State == 0)
                     await ShowRoom(id, hero);
+                else
+                    await ShowBattle(id, hero);
+            }
+            else if (data.StartsWith("fight:"))
+            {
+                if (hero == null) return;
+                _charRepo.UpdateCharacterState(hero.Id, 1);
+                var enemies = EnemyFactory.GenerateEnemiesForLocation(hero.Location);
+                string enemiesJson = System.Text.Json.JsonSerializer.Serialize(
+                    enemies.Select(e => new Lib.Core.Models.EnemyBattleData
+                    {
+                        Name = e.Name,
+                        ClassType = e.GetType().Name,
+                        Hp = e.Hp,
+                        MaxHp = e.MaxHp,
+                        Effects = new()
+                    }).ToList()
+                );
+                _battleRepo.StartBattle(hero.Id, enemiesJson);
+                hero = _charRepo.GetActiveCharacter(id);
+                if (hero != null) await ShowBattle(id, hero);
+            }
+            else if (data == "confirm_exit")
+            {
+                if (hero == null) return;
+                string result = _mapRuler.AdvanceFloor(hero, id);
+                if (result == "victory")
+                {
+                    await botClient.SendMessage(id, "🏆 *You conquered all locations! You are victorious!*", parseMode: ParseMode.Markdown);
+                    return;
+                }
+                var parts = result.Split(':');
+                int loc = int.Parse(parts[1]);
+                int floor = int.Parse(parts[2]);
+                await botClient.SendMessage(id, $"🚪 *You descend deeper...*\n📍 Location {loc}, Floor {floor}", parseMode: ParseMode.Markdown);
+                hero = _charRepo.GetActiveCharacter(id);
+                if (hero != null) await ShowRoom(id, hero);
             }
 
             return;
@@ -230,9 +276,18 @@ public class BotManager
         var inv = _invRepo.GetInventory(hero.Id);
         string bag = inv.Count > 0 ? string.Join(", ", inv) : "Empty";
 
-        string icon = room.Type switch { RoomType.Loot => "🎁", RoomType.Exit => "🚪", _ => "🌫️" };
+        string map = _mapRenderer.RenderMap(hero.Id, hero.CurrentRoomId, hero.MapWidth, hero.MapHeight);
 
-        string msg = $"{icon} **Room : {room.Type}**\n" +
+        string icon = room.Type switch
+        {
+            RoomType.Loot  => "🎁",
+            RoomType.Exit  => "🚪",
+            RoomType.Enemy => "💀",
+            _              => "🌫️"
+        };
+
+        string msg = $"{map}\n" +
+                     $"{icon} **Room: {room.Type}**\n" +
                      $"❤️ HP: {hero.Hp}/{hero.MaxHp} | 🪄 MP: {hero.MagicPower}\n" +
                      $"🛡 Def: {hero.PhisDefense} | ⚔️ Dmg: {hero.HandDmg}\n" +
                      $"⌛ Turns left: {hero.TurnsLeft}\n" +
@@ -241,10 +296,25 @@ public class BotManager
         var buttons = new List<InlineKeyboardButton[]>();
 
         if (room.Type == RoomType.Loot)
-            buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("🔍 Search the Room", $"action_loot:{room.Id}") });
+        {
+            buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("🔍 Search the Room (1 turn)", $"action_loot:{room.Id}") });
+        }
+
+        if (room.Type == RoomType.Enemy)
+        {
+            buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("⚔️ Fight! (1 turn)", $"fight:{room.Id}") });
+        }
+
+        if (room.Type == RoomType.Exit)
+        {
+            buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("🚪 Proceed to next floor", "confirm_exit") });
+        }
 
         foreach (var ex in room.Exits)
-            buttons.Add(new[] { InlineKeyboardButton.WithCallbackData($"Go {ex.Direction}", $"move_to:{ex.TargetRoomId}") });
+        {
+            string exitLabel = $"Go {ex.Direction}";
+            buttons.Add(new[] { InlineKeyboardButton.WithCallbackData(exitLabel, $"move_to:{ex.TargetRoomId}") });
+        }
 
         await _botClient.SendMessage(chatId, msg, replyMarkup: new InlineKeyboardMarkup(buttons), parseMode: ParseMode.Markdown);
     }
