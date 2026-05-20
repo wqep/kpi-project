@@ -4,5 +4,6 @@ public enum RoomType
 {
     Empty = 0,
     Loot = 1,
-    Exit = 2
+    Enemy = 2,
+    Exit =3
 }
