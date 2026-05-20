@@ -1,5 +1,4 @@
-﻿
-using App.Telegram.Handlers;
+﻿using App.Telegram.Handlers;
 using Lib.Infrastructure.Database;
 using Telegram.Bot;
 using Telegram.Bot.Polling;

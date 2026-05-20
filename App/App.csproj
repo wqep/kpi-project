@@ -18,14 +18,14 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="Telegram\Token.txt">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
+      <ProjectReference Include="..\Lib.Core\Lib.Core.csproj" />
+      <ProjectReference Include="..\Lib.Infrastructure\Lib.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Lib.Core\Lib.Core.csproj" />
-      <ProjectReference Include="..\Lib.Infrastructure\Lib.Infrastructure.csproj" />
+      <None Update="Token.txt">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>
